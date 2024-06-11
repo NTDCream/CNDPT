@@ -4,9 +4,12 @@ using UnityEngine;
 
 public class RubyController : MonoBehaviour
 {
+    AudioSource audioSource;
     Rigidbody2D rigidbody2d;
     Animator animator;
     Vector2 lookDirection = new Vector2(1, 0);
+    public GameObject projectilePrefab;
+
 
     float horizontal;
     float vertical;
@@ -18,7 +21,8 @@ public class RubyController : MonoBehaviour
 
     bool isInvincible;
     float invincibleTimer;
-
+    
+    public AudioClip launchClip, hurtClip;
 
     // Start is called before the first frame update
     void Start()
@@ -26,6 +30,7 @@ public class RubyController : MonoBehaviour
         rigidbody2d = GetComponent<Rigidbody2D>();
         currentHealth = maxHealth;
         animator = GetComponent<Animator>();
+        audioSource = GetComponent<AudioSource>();
     }
 
     // Update is called once per frame
@@ -39,16 +44,37 @@ public class RubyController : MonoBehaviour
         {
             lookDirection.Set(move.x, move.y);
             lookDirection.Normalize();
-        }
 
+        }
+        
         animator.SetFloat("Look X", lookDirection.x);
         animator.SetFloat("Look Y", lookDirection.y);
         animator.SetFloat("Speed", move.magnitude);
+
         if (isInvincible)
         {
             invincibleTimer -= Time.deltaTime;
             if (invincibleTimer < 0)
                 isInvincible = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            PlaySound(launchClip);
+            Launch();
+        }
+
+        if (Input.GetKeyDown(KeyCode.X))
+        {
+            RaycastHit2D hit = Physics2D.Raycast(rigidbody2d.position + Vector2.up * 0.2f, lookDirection, 1.5f, LayerMask.GetMask("NPC"));
+            if (hit.collider != null)
+            {
+                NonPlayerCharacter character = hit.collider.GetComponent<NonPlayerCharacter>();
+                if (character != null)
+                {
+                    character.DisplayDialog();
+                }
+            }
         }
     }
 
@@ -67,11 +93,24 @@ public class RubyController : MonoBehaviour
             animator.SetTrigger("Hit");
             if (isInvincible)
                 return;
-
+            PlaySound(hurtClip);
             isInvincible = true;
             invincibleTimer = timeInvincible;
         }
         currentHealth = Mathf.Clamp(currentHealth + amount, 0, maxHealth);
-        Debug.Log(currentHealth + "/" + maxHealth);
+        UIHealthBar.instance.SetValue(currentHealth / (float)maxHealth);
+    }
+
+    void Launch()
+    {
+        GameObject projectileObject = Instantiate(projectilePrefab, rigidbody2d.position + Vector2.up * 0.5f, Quaternion.identity);
+        Projectile projectile = projectileObject.GetComponent<Projectile>();
+        projectile.Launch(lookDirection, 300);
+        animator.SetTrigger("Launch");
+    }
+    public void PlaySound(AudioClip clip)
+    {
+        audioSource.PlayOneShot(clip);
     }
 }
+
